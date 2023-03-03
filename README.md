@@ -17,11 +17,4 @@ ListarCardapio
 CadastrarPedido
 ExtratoPedido
 
-image.png
-
-image.png
-
-image.png
-
-
 PROJETO EM CONSTRUÇÃO, FUNCIONALIDADES SENDO IMPLEMENTADAS;
