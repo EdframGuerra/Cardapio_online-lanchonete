@@ -1,101 +1,59 @@
 const pool = require('../conexao-banco-dados/conexao')
-const jwt = require('jsonwebtoken')
-const senhaJwt = require('../senhajwt')
 
-const cadastrarPedidoCliente = async (req, res) => {
+const cadastrarPedido = async (req, res) => {
+    const { cpf } = req.body
 
-    const { authorization } = req.headers
-    const { id_cardapio, quantidade } = req.body
-
-
-    if (!authorization) {
-        return res.status(401).json({ mensagem: `Cliente não autorizado` })
-    }
-
-    const token = authorization.split(' ')[1];
+    const { itens } = req.body
 
     try {
-        const { id } = jwt.verify(token, senhaJwt)
+        // Insere o pedido na tabela pedidos
+        const { rows: [pedido] } = await pool.query(
+            'INSERT INTO pedidos (cpf_cliente, total) VALUES ($1, 0) RETURNING id',
+            [cpf]
+        );
 
-        const clienteCadastrado = await pool.query(`SELECT * FROM clientes WHERE id= $1`, [id])
-
-        if (clienteCadastrado.rowCount === 0) {
-            return res.status(401).json({ mensagem: 'Não autorizado' })
+        // Insere os itens do pedido na tabela itens_pedido
+        for (const item of itens) {
+            const { quantidade, cardapio_id } = item;
+            const { rows: [produto] } = await pool.query(
+                'SELECT valor FROM cardapio WHERE id = $1',
+                [cardapio_id]
+            );
+         
+            
+            const valor = quantidade * produto.valor;
+          
+            await pool.query(
+                'INSERT INTO itens_pedido (pedido_id, quantidade, cardapio_id, valor) VALUES ($1, $2, $3, $4)',
+                [pedido.id, quantidade, cardapio_id, valor]
+            );
         }
 
-        const usuario = clienteCadastrado.rows[0]
+        // Atualiza o valor do pedido na tabela pedidos
+        const { rows: [total] } = await pool.query(
+            'SELECT SUM(valor) AS total FROM itens_pedido WHERE pedido_id = $1',
+            [pedido.id]
+        );
+        await pool.query(
+            'UPDATE pedidos SET total = $1 WHERE id = $2',
+            [total.total, pedido.id]
+        );
 
-        req.usuario = usuario
-
-        if (!id_cardapio || !quantidade) {
-            return res.status(400).json({ mensagem: 'todos os campos devem ser preenchidos' })
-        }
-        // if (!id_cardapio.trim() || !quantidade.trim()) {
-        //     return res.status(400).json({ mensagem: 'todos os campos devem ser preenchidos' })
-        // }
-
-        const pedido = await pool.query(`INSERT INTO pedidos (id_cliente)
-        VALUES
-        ($1)returning*`, [usuario.id])
-
-        return res.status(201).json(pedido.rows[0])
-
+        console.log(pedido.id)
+        return res.status(201).json({
+            pedido: pedido.id,
+            totalApagar:total.total
+        })
     } catch (error) {
-        return res.status(500).json({ mensagem: error.message })
-    }
-
-
-}
-const cadastrarProdutoPedido = async (req, res) => {
-    const { id_cardapio, quantidade } = req.body
-    const { idPedido } = req.params
-
-    const { authorization } = req.headers
-
-
-
-    if (!authorization) {
-        return res.status(401).json({ mensagem: `Cliente não autorizado` })
-    }
-
-    const token = authorization.split(' ')[1];
-
-    try {
-        const { id } = jwt.verify(token, senhaJwt)
-
-        const clienteCadastrado = await pool.query(`SELECT * FROM clientes WHERE id= $1`, [id])
-
-        if (clienteCadastrado.rowCount === 0) {
-            return res.status(401).json({ mensagem: 'Não autorizado' })
-        }
-
-        const usuario = clienteCadastrado.rows[0]
-
-        req.usuario = usuario
-
-        if (!id_cardapio || !quantidade) {
-            return res.status(400).json({ mensagem: 'todos os campos devem ser preenchidos' })
-        }
-       
-
-        const cardapioItem = await pool.query(`SELECT valor FROM cardapio WHERE id = $1`, [id_cardapio])
-
-        const valor = cardapioItem.rows[0].valor * quantidade
-
-        const pedidoProduto = await pool.query(`INSERT INTO pedido_produtos(id_cardapio, id_pedido, quantidade, valor) 
-        VALUES
-        ($1,$2,$3,$4)returning*`, [id_cardapio, idPedido, quantidade, valor])
-
-        return res.status(201).json(pedidoProduto.rows[0])
-
-    } catch (error) {
-        return res.status(500).json({ mensagem: error.message })
+        console.log(error)
+        return res.status(500).json(error)
     }
 }
+
 
 const listarPedidos = async (req, res) => {
     try {
-        const pedidosRealizados = await pool.query(`SELECT id, id_cliente,total, id_pedido_produto FROM pedidos`)
+        const pedidosRealizados = await pool.query(`SELECT * FROM pedidos`)
 
         return res.status(201).json(pedidosRealizados.rows)
 
@@ -114,10 +72,9 @@ const excluirPedido = async (req, res) => {
 }
 
 module.exports = {
-    cadastrarPedidoCliente,
     listarPedidos,
     atualizarPedido,
     excluirPedido,
-    cadastrarProdutoPedido
+    cadastrarPedido
 
 }

@@ -1,8 +1,13 @@
 const express = require('express')
-const { cadastrarCliente, detalharCliente } = require('../controladores/controladorClientes')
-const { cadastrarItemCardapio, listarCardapio, detalharItemCardapio, atualizarCardapio, excluirPastelCadastrado } = require('../controladores/controladoresCardapio')
-const { cadastrarPedidoCliente, listarPedidos, cadastrarProdutoPedido } = require('../controladores/controladorPedido')
-const { login } = require('../controladores/loginCliente')
+const { cadastrarItemCardapio, listarCardapio, detalharItemCardapio, atualizarCardapio, excluirPastelCadastrado } = require('../controladores/controladorCardapio')
+const { detalharCliente, cadastrarCliente } = require('../controladores/controladorCliente')
+
+
+const { listarPedidos, cadastrarPedido } = require('../controladores/controladorPedido')
+const { login } = require('../controladores/login')
+
+const autenticarLogin = require('../intermediario/validarLogin')
+
 
 
 const rotas = express.Router()
@@ -28,8 +33,10 @@ rotas.post('/logincliente', login)
 rotas.get('/pedidos', listarPedidos)
 
 
-rotas.post('/pedido', cadastrarPedidoCliente)
-rotas.post('/pedido/:idPedido', cadastrarProdutoPedido)
+
+rotas.use(autenticarLogin)
+rotas.post('/pedidocadastrado', cadastrarPedido)
+// rotas.post('/pedido', cadastrarItemPedido)
 
 
 module.exports = rotas

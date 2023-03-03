@@ -7,7 +7,7 @@ const bcrypt = require('bcrypt')
 //Função cadastrar usuario
 const cadastrarCliente = async (req, res) => {
 
-    const { nome, email } = req.body;
+    const { cpf, nome, email, senha } = req.body;
 
     // validação de campos obrigatórios via middleware
     try {
@@ -19,15 +19,16 @@ const cadastrarCliente = async (req, res) => {
             return res.status(400).json({ mensagem: 'Já existe cliente cadastrado com o e-mail informado.' })
         }
 
+        const senhaCriptografada = await bcrypt.hash(senha, 10)
 
         //cadastrando o usuario no banco de dados
-        const { rows } = await pool.query(`INSERT INTO clientes (nome, email)
+        const clienteCadastrado = await pool.query(`INSERT INTO clientes (cpf, nome, email, senha)
         VALUES
-        ($1, $2) returning *`, [nome, email])
+        ($1, $2, $3, $4) returning*`, [cpf, nome, email, senhaCriptografada])
 
+        const { senha: _, ...clienteLogado } = clienteCadastrado.rows[0]
 
-
-        return res.status(201).json(rows)
+        return res.status(201).json(clienteLogado)
 
     } catch (error) {
         return res.status(500).json(error.message)
